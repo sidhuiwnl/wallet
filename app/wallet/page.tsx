@@ -7,8 +7,9 @@
     import { Card, CardContent } from "@/components/ui/card";
     import Navbar from "@/components/Navbar";
     import { Keypair } from "@solana/web3.js";
-    import  {HDNodeWallet } from "ethers"
-
+    import  { HDNodeWallet,ethers } from "ethers"
+    
+    
 
     const mnemoic = generateMnemonic();
 
@@ -28,7 +29,7 @@
         }
 
         generateSeed()
-    })
+    },[])
 
     function revealMnemonic(){
         
@@ -74,8 +75,8 @@
                 <h1>Wallet SOL : {walletIndex + 1}</h1>
                 <h1>Public key</h1>
                 {pubKey}
-                <h1>Private  key</h1>
-                {privKey}
+                {/* <h1>Private  key</h1>
+                {privKey} */}
             </div>
         )
     }
@@ -85,14 +86,16 @@
         const hdNode = HDNodeWallet.fromSeed(seed);
         const child = hdNode.derivePath(ethPath);
         const privateKey = child.privateKey;
-        const pubKey = child.publicKey
+        const publicKey = child.publicKey;
+        const hashedPub = ethers.computeAddress(publicKey);
+
         return (
             <div>
                 <h1>Wallet ETH: {walletIndex + 1}</h1>
                 <h1>Public key</h1>
-                {pubKey}
-                <h1>Private  key</h1>
-                {privateKey}
+                {hashedPub} 
+                {/* <h1>Private  key</h1>
+                {privateKey} */}
             </div>
         )
     }
