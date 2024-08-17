@@ -1,84 +1,78 @@
 'use client'
 
-import { generateMnemonic,mnemonicToSeed } from "bip39";
+import { generateMnemonic, mnemonicToSeed } from "bip39";
 import { Button } from "@/components/ui/button";
 import { derivePath } from "ed25519-hd-key";
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-
 import { Keypair } from "@solana/web3.js";
 
-const mnemoic = generateMnemonic();
-let seed : Buffer | null = null;
+const mnemonic = generateMnemonic();
 
-export default function Wallet(){
-   
-    const[showMnemoic,setShowMnemoic] = useState(false);
-    const [seedReady,setSeedReady] = useState(false);
-    const[wallets,setWallets] = useState([1]);
+export default function Wallet() {
+    const [showMnemonic, setShowMnemonic] = useState(false);
+    const [seed, setSeed] = useState<Buffer | null>(null);
+    const [wallets, setWallets] = useState<number[]>([0]);
     
-   useEffect(() =>{
-    async function generateSeed(){
-        if(!seed){
-            seed = await mnemonicToSeed(mnemoic);
-           setSeedReady(true)
+    useEffect(() => {
+        async function generateSeed() {
+            if (!seed) {
+                const newSeed = await mnemonicToSeed(mnemonic);
+                setSeed(newSeed);
+            }
         }
+        generateSeed();
+    }, [seed]);
+
+    function handleButtonClick() {
+        setShowMnemonic(true);
+        setWallets(prevWallets => [...prevWallets, prevWallets.length]);
     }
-
-    generateSeed()
-   },[])
-
-   function revealMnemonic(){
-    
-    setShowMnemoic(true);
-   }
    
-    return(
-        <div className="w-screen h-screen ">
-            
+    return (
+        <div className="w-screen h-screen">
             <div className="text-center">
-                <Button onClick={revealMnemonic}>Generate Secret </Button>
+                <Button onClick={handleButtonClick}>Generate Wallet</Button>
             </div>
-           <div className="mt-5 w-[4xl]">
-                {showMnemoic && (
+            <div className="mt-5 w-[4xl]">
+                {showMnemonic && (
                     <>
-                    <Mnemoic mnemoicValue={mnemoic}/>
-                    {seedReady && seed && <Vault seed={seed} wallets={wallets[0]}/>}
+                        <Mnemonic mnemonicValue={mnemonic} />
+                        {seed && wallets.map((walletIndex) => (
+                            <Vault key={walletIndex} seed={seed} walletIndex={walletIndex} />
+                        ))}
                     </>
-                    
                 )}
-           </div>
+            </div>
         </div>
-        
-    )
+    );
 }
 
-function Vault({seed, wallets} : {seed : Buffer,wallets : number}){
-    
-    const path = `m/44'/501'/${wallets}'/0'`;
-    const derivedSeed = derivePath(path,seed.toString('hex')).key;
+function Vault({ seed, walletIndex }: { seed: Buffer, walletIndex: number }) {
+    const path = `m/44'/501'/${walletIndex}'/0'`;
+    const derivedSeed = derivePath(path, seed.toString('hex')).key;
     const keypair = Keypair.fromSeed(Uint8Array.from(derivedSeed));
-    const pubKey =  keypair.publicKey.toBase58();
+    const pubKey = keypair.publicKey.toBase58();
     const privKey = Buffer.from(keypair.secretKey).toString('hex');
-    return(
+
+    return (
         <div>
-            <h1>Wallet:</h1>
-            <h1>Public key</h1>
+            <h1>Wallet {walletIndex + 1}:</h1>
+            <h2>Public key</h2>
             {pubKey}
-            <h1>Private  key</h1>
+            <h2>Private key</h2>
             {privKey}
         </div>
-    )
+    );
 }
 
-
-function Mnemoic({mnemoicValue} : {mnemoicValue : string}){
-    return(
+function Mnemonic({ mnemonicValue }: { mnemonicValue: string }) {
+    return (
         <Card>
-        <CardContent className="space-y-3">
-            <h1>Current Secret</h1>
-            {mnemoicValue ? mnemoicValue : ""}
-        </CardContent>
-    </Card>
-    )
+            <CardContent className="space-y-3">
+                <h1>Current Secret</h1>
+                {mnemonicValue}
+            </CardContent>
+        </Card>
+    );
 }
