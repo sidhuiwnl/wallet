@@ -1,113 +1,136 @@
-    'use client'
+'use client'
 
-    import { generateMnemonic,mnemonicToSeed } from "bip39";
-    import { Button } from "@/components/ui/button";
-    import { derivePath } from "ed25519-hd-key";
-    import { useEffect, useState } from "react";
-    import { Card, CardContent } from "@/components/ui/card";
-    import Navbar from "@/components/Navbar";
-    import { Keypair } from "@solana/web3.js";
-    import  { HDNodeWallet,ethers } from "ethers"
-    
-    
-
-    const mnemoic = generateMnemonic();
+import Navbar from "@/components/Navbar"
+import { generateMnemonic, mnemonicToSeedSync } from "bip39";
+import { Button } from "@/components/ui/button"
+import { useEffect, useState } from "react";
+import { derivePath } from "ed25519-hd-key";
+import { Keypair } from "@solana/web3.js";
+import DialogComponent from "@/components/WalletTransaction";
+import Link from "next/link";
 
 
-    export default function Wallet(){
-    
-        const[showMnemoic,setShowMnemoic] = useState(false);
-        const [seed,setSeed] = useState<Buffer | null>(null);
-        const[walletCount,setWalletCount] = useState(0);
-        
-    useEffect(() =>{
-        async function generateSeed(){
-            if(!seed){
-                const seed = await mnemonicToSeed(mnemoic);
-            setSeed(seed)
-            }
+interface WalletData {
+    mnemonic: string;
+    seed: string;
+}
+
+interface SolanaWallet {
+    index: number;
+    publicKey: string;
+    privateKey: string;
+}
+
+export default function Wallet(): JSX.Element {
+    return (
+        <>
+            <Navbar />
+            <Generate />
+        </>
+    )
+}
+
+function Generate(): JSX.Element {
+    const [mnemonic, setMnemonic] = useState<string>("");
+    const [seed, setSeed] = useState<string>("");
+    const [solWallets, setSolWallets] = useState<SolanaWallet[]>([]);
+
+    useEffect(() => {
+        const storedData = localStorage.getItem("walletData");
+        if (storedData) {
+            const { mnemonic, seed } = JSON.parse(storedData) as WalletData;
+            setMnemonic(mnemonic);
+            setSeed(seed);
         }
 
-        generateSeed()
-    },[])
+        const storedWallets = localStorage.getItem("solWallets");
+        if (storedWallets) {
+            setSolWallets(JSON.parse(storedWallets) as SolanaWallet[]);
+        }
+    }, [])
 
-    function revealMnemonic(){
-        
-        setShowMnemoic(true);
-        setWalletCount(prevWallets => prevWallets + 1);
+    function Mnemonic(): void {
+        const newMnemonic = generateMnemonic();
+        const newSeed = mnemonicToSeedSync(newMnemonic).toString('hex');
+        setMnemonic(newMnemonic);
+        setSeed(newSeed);
+        setSolWallets([]);
+        const walletData: WalletData = { mnemonic: newMnemonic, seed: newSeed };
+        localStorage.setItem("walletData", JSON.stringify(walletData));
     }
-    
-        return(
-            <div className="w-screen h-screen ">
-                <Navbar/>
-                <div className="text-center">
-                    <Button onClick={revealMnemonic}>Generate Secret </Button>
-                </div>
-            <div className="mt-5 w-[4xl] p-4">
-                    {showMnemoic && (
-                        <div className="space-y-2">
-                        <Mnemoic mnemoicValue={mnemoic}/>
-                        { seed && Array.from({length : walletCount},(_, i) =>(
-                            <>
-                             <SolVault key={i} seed={seed} walletIndex={i}/>
-                             <EthVault seed={seed} walletIndex={i}/>
-                            </>
-                           
-                        ))}
-                        </div>
-                        
-                    )}
+
+    function generateSolKey(): void {
+        const solPath = `m/44'/501'/0'/${solWallets.length}'`;
+        const derivedSeed = derivePath(solPath, seed).key;
+        const keyPair = Keypair.fromSeed(Uint8Array.from(derivedSeed));
+        const pubKey = keyPair.publicKey.toBase58();
+        const privKey = Buffer.from(keyPair.secretKey).toString('hex');
+
+        const newWallet: SolanaWallet = {
+            index: solWallets.length,
+            publicKey: pubKey,
+            privateKey: privKey
+        }
+
+        const updatedWallets = [...solWallets, newWallet];
+        setSolWallets(updatedWallets);
+        localStorage.setItem("solWallets", JSON.stringify(updatedWallets));
+    }
+
+
+    return (
+        <div className="p-4 space-y-4">
+            <div className="mt-5 space-y-4 flex flex-col">
+                <h1>Create your phrase:</h1>
+                <Button className="mb-4 text-sm" onClick={Mnemonic}>Generate Phrase</Button>
+                {mnemonic}
             </div>
+            <div className="flex space-x-3">
+            <Button onClick={generateSolKey}>Add Sol wallet</Button>
+            <DialogComponent/>
             </div>
             
-        )
-    }
-
-    function SolVault({seed, walletIndex} : {seed : Buffer,walletIndex : number}){
-        
-        const solpath = `m/44'/501'/${walletIndex}'/0'`;
-        const derivedSeed = derivePath(solpath,seed.toString('hex')).key;
-        const keypair = Keypair.fromSeed(Uint8Array.from(derivedSeed));
-        const pubKey =  keypair.publicKey.toBase58();
-        const privKey = Buffer.from(keypair.secretKey).toString('hex');
-        return(
-            <div>
-                <h1>Wallet SOL : {walletIndex + 1}</h1>
-                <h1>Public key</h1>
-                {pubKey}
-                {/* <h1>Private  key</h1>
-                {privKey} */}
-            </div>
-        )
-    }
-
-    function EthVault({walletIndex,seed} : {walletIndex : number,seed : Buffer}){
-        const ethPath = `m/44'/60'/${walletIndex}'/0`; 
-        const hdNode = HDNodeWallet.fromSeed(seed);
-        const child = hdNode.derivePath(ethPath);
-        const privateKey = child.privateKey;
-        const publicKey = child.publicKey;
-        const hashedPub = ethers.computeAddress(publicKey);
-
-        return (
-            <div>
-                <h1>Wallet ETH: {walletIndex + 1}</h1>
-                <h1>Public key</h1>
-                {hashedPub} 
-                {/* <h1>Private  key</h1>
-                {privateKey} */}
-            </div>
-        )
-    }
+            <SolWallets wallets={solWallets} />
+        </div>
+    )
+}
 
 
-    function Mnemoic({mnemoicValue} : {mnemoicValue : string}){
-        return(
-            <Card className="p-5 mb-10">
-            <CardContent>
-                <h1 className="mb-10">Current Secret</h1>
-                {mnemoicValue ? mnemoicValue : ""}
-            </CardContent>
-        </Card>
-        )
-    }
+interface SolWalletsProps {
+    wallets: SolanaWallet[];
+}
+
+
+
+
+
+
+
+
+
+
+
+function SolWallets({ wallets }: SolWalletsProps): JSX.Element {
+    return (
+        <div>
+            <h2>Solana Wallets:</h2>
+            {wallets.map((wallet, index) => (
+                <div key={index}>
+                    <p>Wallet {wallet.index + 1}</p>
+                    <Link href={`/wallet/${wallet.publicKey}`}>Public Key: {wallet.publicKey}</Link>
+                    {/* <p>Private Key: {wallet.privateKey}</p> */}
+                </div>
+            ))}
+        </div>
+    )
+}
+
+
+
+
+
+
+
+
+
+
