@@ -9,17 +9,32 @@ import { Input } from "@/components/ui/input";
 import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL, sendAndConfirmTransaction } from "@solana/web3.js";
 import { Keypair } from "@solana/web3.js";
 
+interface Wallet {
+    publicKey: string;
+    privateKey: string;
+  }
 
 
 export default function DialogComponent() {
+
 
     
     const [selectedWallet, setSelectedWallet] = useState("");
     const [amount, setAmount] = useState("");
     const [recipientAddress, setRecipientAddress] = useState("");
 
+    function getWallets() : Wallet[]{
+        try {
+            const walletData = localStorage.getItem("solWallets");
+            return walletData ? JSON.parse(walletData) : []
+        } catch (error) {
+            console.error("Error parsing wallets from localStorage:", error);
+            return []
+        }
+    }
+
     
-    const wallets   = JSON.parse(localStorage.getItem("solWallets") || "[]");
+    const wallets  : Wallet[] = getWallets();
 
     async function transaction(){
         if(!selectedWallet || !amount || !recipientAddress){
@@ -45,7 +60,14 @@ export default function DialogComponent() {
                     lamports: LAMPORTS_PER_SOL * parseFloat(amount)
                 })
             );
-            const signers = [Keypair.fromSecretKey(new Uint8Array(wallet.privateKey.match(/.{1,2}/g).map(byte => parseInt(byte, 16))))];
+
+            const privateKeyBytes = wallet.privateKey.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16));
+            
+            if(!privateKeyBytes){
+                throw new Error("Invalid private key format");
+            }
+            const signers = [Keypair.fromSecretKey(new Uint8Array(privateKeyBytes))];
+
             
             const signature = await sendAndConfirmTransaction(
                 connection,

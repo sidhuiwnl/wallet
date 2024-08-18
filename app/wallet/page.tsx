@@ -20,6 +20,10 @@ interface SolanaWallet {
     publicKey: string;
     privateKey: string;
 }
+interface SolWalletsProps {
+    wallets: SolanaWallet[];
+}
+
 
 export default function Wallet(): JSX.Element {
     return (
@@ -96,9 +100,6 @@ function Generate(): JSX.Element {
 }
 
 
-interface SolWalletsProps {
-    wallets: SolanaWallet[];
-}
 
 
 
