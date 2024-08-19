@@ -77,6 +77,7 @@ function Generate(): JSX.Element {
         setMnemonic(newMnemonic);
         setSeed(newSeed);
         setSolWallets([]);
+        setEthWallets([]);
         const walletData: WalletData = { mnemonic: newMnemonic, seed: newSeed.toString('hex') };
         localStorage.setItem("walletData", JSON.stringify(walletData));
     }
